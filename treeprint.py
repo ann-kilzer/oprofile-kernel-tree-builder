@@ -20,7 +20,7 @@ script that does.  I am also working on a python script to generate ctags.
 The oprofile output and the ctags file must be passed via the command line as
 shown:
 
-  $ python treeprint.py -f <oprofile output> -t <ctags file> -p <path to kernel> -b [bound]
+  $ python treeprint.py -f <oprofile output> -t <ctags file> -p <path to kernel> [-b bound]
 
 The bound is optional.  The rest of the parameters are required.
 
