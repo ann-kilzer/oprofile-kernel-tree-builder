@@ -1,0 +1,121 @@
+*******************************************************
+* Oprofile Kernel Tree Builder                        *
+*                                                     *
+* Author: Ann Kilzer (akilzer@gmail.com)              *
+*                                                     *  
+* Created: July, 2008                                 * 
+* Last Modified: August 7, 2008                       *
+*******************************************************
+
+I built this tool during my internship at Google and my host allowed me to 
+release it as open source.  
+
+This is a script for viewing the Oprofile output as a directory tree.
+
+The script looks through the oprofile output and builds a dictionary containing 
+the function names and the percentage of cpu cycles used by each. It then searches 
+for the function names in the ctags output in order to determine the location 
+of each function inside the kernel. Finally, the program creates a tree representing
+the directory structure of the kernel. Each node represents a directory, file, or 
+function, and contains the associated cpu percentage.
+
+The program outputs a long list of nodes from each level of the tree and their 
+associated cpu percentages. This uses a level order traversal sequence.
+
+
+
+*******************************************************
+* 1. Generating the ctags file                        *
+*******************************************************
+
+The following bash script will generate a ctags file while omitting certain 
+directories:
+
+-----------------------------------------------------------------------------------
+#!/bin/bash
+
+if test $# -ne 1
+then
+	echo "usage: $0 ARCH" 2>&1
+	exit 1
+fi
+arch=$1
+
+if test $arch != "full"
+then
+	find . -follow -name '*.[chCH]' -print | awk "\
+		/\Documentation\// { next }
+		/\/drivers\/s390\// { next }
+		/\/include\/asm-generic\// { print }
+		/\/include\/asm-$arch\// { print }
+		/\/include\/asm-/ { next }
+		/\/arch\/$arch\// { print }
+		/\/arch\// { next }
+		{ print }" > ctags.files
+else
+	find . -follow -name '*.[SschlyCGHL]' -print | fgrep -v "/drivers/s390/" > ctags.files
+fi
+
+ctags `cat ctags.files`
+-----------------------------------------------------------------------------------
+
+I am also working on a way to build the ctags file in python.  The file mk_tags.py
+is working, but the output is not identical to that produced by the bash script.
+
+
+*******************************************************
+* 2. Generating the oprofile output:                  *
+*******************************************************
+
+The oprofile output must have the columns set up as shown below: 
+
+	Counted CPU_CLK_UNHALTED events (Clock cycles when not halted) with a 
+		unit mask or 0x00 (unhalted core cycles) count 100000
+
+	samples	%	image name	app name	symbol name
+	...	...	...		...		...
+
+
+
+The following commands should do the trick:
+-----------------------------------------------------------------------------------
+opcontrol --vmlinux= [path to linux kernel]
+opcontrol --separate=kernel
+opcontrol --reset
+opcontrol -s
+
+====>>>> command to run
+
+opcontrol --shutdown
+opreport --merge all -l -p /lib/modules/`uname -r` -p [path to linux kernel]
+>oprofile.all.$i
+opreport --merge all -l -p /lib/modules/`uname -r` -p [path to linux kernel]
+<command> >oprofile.directio.$i
+-----------------------------------------------------------------------------------
+
+*******************************************************
+* 3. Running the script	               	              *
+*******************************************************
+This is a preliminary version of a script for parsing the oprofile output.
+
+This version does not generate the ctags file, though I have included a bash
+script that does.  I am also working on a python script to generate ctags.
+The oprofile output and the ctags file must be passed via the command line as
+shown:
+
+  $ python treeprint.py -f <oprofile output> -t <ctags file> -p <path to kernel> -b [bound]
+
+The bound is optional.  The rest of the parameters are required.
+
+The script looks through the oprofile output and builds a dictionary containing
+the function names and the percentage of cpu cycles used by each.  It then
+searches for the function names in the ctags output in order to determine the
+location of each function inside the kernel.  Finally, the program creates a
+tree representing the directory structure of the kernel.  Each node represents a
+directory, file, or function, and contains the associated cpu percentage.
+
+The program outputs a long list of nodes from each level of the tree and their
+associated cpu percentages.  This uses a level order traversal sequence.  A
+later version may incorporate a graphical output.
+
+
